@@ -4,7 +4,7 @@
 Função       U_TETRIS
 Autor        Júlio Wittwer
 Data         03/11/2014
-Versão       1.141103
+Versão       1.150222
 Descriçao    Réplica do jogo Tetris, feito em AdvPL
 
 Para jogar, utilize as letras:
@@ -171,8 +171,10 @@ Return ( nOver == 0 )
 /* ----------------------------------------------------------
 Função PaintGrid()
 Pinta o Grid do jogo da memória para a Interface
----------------------------------------------------------- */
 
+Release 20150222 : Optimização na camada de comunicação, apenas setar 
+o nome do resource / bitmap caso o resource seja diferente do atual. 
+---------------------------------------------------------- */
 
 STATIC Function PaintGrid(oDlg,oBackGround,aGrid,aBmpGrid)
 Local nL
@@ -184,8 +186,11 @@ for nL := 1 to 20
 	cLine := aGrid[nL]
 	For nC := 1 to 10
 		nCor := val(substr(cLine,nC+2,1))
-		aBmpGrid[nL][nC]:SetBmp(aColors[nCor+1])
-		// aBmpGrid[nL][nC]:Refresh()
+		If aBmpGrid[nL][nC]:cResName != aColors[nCor+1]
+			// Somente manda atualizar o bitmap se houve
+			// mudança na cor / resource desta posição
+			aBmpGrid[nL][nC]:SetBmp(aColors[nCor+1])
+	  endif
 	Next
 Next
 
