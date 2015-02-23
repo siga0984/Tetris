@@ -4,15 +4,16 @@
 Função       U_TETRIS
 Autor        Júlio Wittwer
 Data         03/11/2014
-Versão       1.150222
+Versão       1.150223
 Descriçao    Réplica do jogo Tetris, feito em AdvPL
 
-Para jogar, utilize as letras:
+Para jogar, utilize as letras :
 
-A = Move esquerda
-D = Move Direita
-S = PAra baixo
-W = Rotaciona sentido horario
+A ou J = Move esquerda
+D ou L = Move Direita
+S ou K = Para baixo
+W ou I = Rotaciona sentido horario
+Barra de Espaço = Dropa a peça
 
 Pendencias
 
@@ -24,7 +25,8 @@ Fazer um High Score
 ======================================================== */
 
 STATIC aPieces := LoadPieces()
-STATIC aColors := { "BLACK","BLUE","RED","GREEN","ORANGE","PURPLE","YELOW","LIGHTBLUE" }
+STATIC aColors := { "BLACK"  , "BLUE"   , "RED"    , "GREEN", ; 
+                    "ORANGE" , "PURPLE" , "YELOW"  , "LIGHTBLUE" }
 
 
 USER Function Tetris()
@@ -34,15 +36,12 @@ Local oDlg
 Local aBMPGrid := array(20,10)
 Local aGrid := {}
 Local oBackGround
-Local cAct := ' '
 Local oTimer
 Local aDropping := {}
 Local lRunning := .F.
+Local cAct := ' '
 
-// Carrega os arrays com as definições das peças
-LoadPieces()
-
-DEFINE DIALOG oDlg TITLE "Tetris" FROM 10,10 TO 600,400 PIXEL
+DEFINE DIALOG oDlg TITLE "Tetris" FROM 10,10 TO 450,250 PIXEL
 
 // Cria um fundo cinza, "esticando" um bitmap
 @ 8, 8 BITMAP oBackGround RESOURCE "GRAY" ;
@@ -66,28 +65,58 @@ Next
 // descer uma posição a cada um segundo 
 // ( Nao pode ser menor, o menor tempo é 1 segundo ) 
 oTimer := TTimer():New(1000, ;
-   {|| GoDown(oDlg,oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer,.f.),oAct:Setfocus() }, oDlg )
+   {|| GoDown(oDlg,oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer,.f.) }, oDlg )
 
-// Botão para iniciar o jogo
-@ 230,10 BUTTON oDummyBtn PROMPT 'Start' ;
-  ACTION (Start(oDlg,@aDropping,oBackGround,aBMPGrid,aGrid),lRunning := .t.,oTimer:Activate(),oAct:Setfocus()) ;
-  SIZE 80, 010 OF oDlg PIXEL
+// Botões com atalho de teclado 
+// para as teclas usadas no jogo 
+// colocados fora da area visivel da caixa de dialogo 
 
-// Get de um caractere com 1 Byte de tamanho para obter 
-// qual e a ação a ser realizada com a peça em jogo
-@ 230,90 GET oAct VAR cAct PICTURE "!" ;
-  MESSAGE "Action" SIZE 0,0 ;
-  WHEN lRunning ;
-  VALID ( DoAction(oDlg,cAct,oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer),oAct:Setfocus(),.t. ) OF oDlg PIXEL
+@ 480,10 BUTTON oDummyBtn PROMPT '&A' ;
+  ACTION ( DoAction(oDlg,'A',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
 
-ACTIVATE DIALOG oDlg CENTER
+@ 480,20 BUTTON oDummyBtn PROMPT '&S' ;
+  ACTION ( DoAction(oDlg,'S',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
 
+@ 480,20 BUTTON oDummyBtn PROMPT '&D' ;
+  ACTION ( DoAction(oDlg,'D',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
+
+@ 480,20 BUTTON oDummyBtn PROMPT '&W' ;
+  ACTION ( DoAction(oDlg,'W',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
+
+@ 480,20 BUTTON oDummyBtn PROMPT '&J' ;
+  ACTION ( DoAction(oDlg,'J',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
+
+@ 480,20 BUTTON oDummyBtn PROMPT '&K' ;
+  ACTION ( DoAction(oDlg,'K',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
+
+@ 480,20 BUTTON oDummyBtn PROMPT '&L' ;
+  ACTION ( DoAction(oDlg,'L',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
+                                   
+@ 480,20 BUTTON oDummyBtn PROMPT '&I' ;
+  ACTION ( DoAction(oDlg,'I',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
+
+@ 480,20 BUTTON oDummyBtn PROMPT '& ' ;
+  ACTION ( DoAction(oDlg,' ',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
+
+// Na inicialização do Dialogo uma partida é iniciada
+oDlg:bInit := {|| Start(oDlg,@aDropping,oBackGround,aBMPGrid,aGrid),lRunning := .t.,oTimer:Activate() }
+
+ACTIVATE DIALOG oDlg CENTER 
+ 
 Return
 
-/*
-Função Start()
-Inicia o jogo
-*/
+/* ------------------------------------------------------------
+Função Start() Inicia o jogo
+------------------------------------------------------------ */
 
 STATIC Function Start(oDlg,aDropping,oBackGround,aBmpGrid,aGrid)
 
@@ -321,9 +350,11 @@ If PutPiece(aDropping,aGrid)
 Else
   // Acabou, a peça nova nao entra (cabe) no Grid
   // Desativa o Timer e mostra "game over"
+  // e fecha o programa 
 	lRunning := .f.
 	oTimer:Deactivate()
 	MsgStop("*** GAME OVER ***")
+	QUIT
 Endif
 
 return
@@ -403,8 +434,9 @@ ElseIF cAct == ' '
 	
 Endif
 
-Return .T.
+cAct :=  "X"
 
+Return .T.
 
 /* -----------------------------------------------------------------------
 Remove uma peça do Grid atual 
