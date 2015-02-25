@@ -4,7 +4,7 @@
 Função       U_TETRIS
 Autor        Júlio Wittwer
 Data         03/11/2014
-Versão       1.150223
+Versão       1.150224
 Descriçao    Réplica do jogo Tetris, feito em AdvPL
 
 Para jogar, utilize as letras :
@@ -17,9 +17,6 @@ Barra de Espaço = Dropa a peça
 
 Pendencias
 
-Calcular e mostrar pontuação / score
-Calcular e mostrar tempo de jogo
-Mostrar a proxima peça que vai cair
 Fazer um High Score
 
 Cores das peças
@@ -34,24 +31,37 @@ T = Purple
 
 ======================================================== */
 
-STATIC aPieces := LoadPieces()
-STATIC aColors := { "BLACK","YELOW","LIGHTBLUE","ORANGE","RED","GREEN","BLUE","PURPLE" }
+STATIC _aPieces := LoadPieces()
+STATIC _aColors := { "BLACK2","YELOW2","LIGHTBLUE2","ORANGE2","RED2","GREEN2","BLUE2","PURPLE2" }
+STATIC _nGameClock
+STATIC _nNextPiece
+STATIC _lRunning := .F.  
+STATIC _aBMPGrid  := array(20,10)
+STATIC _aBMPNext  := array(4,4)
+STATIC _aNext := {}
 
 USER Function Tetris()
 Local nC
 Local nL
 Local oDlg
-Local aBMPGrid := array(20,10)
 Local aGrid := {}
 Local oBackGround
+Local oBackNext
 Local oTimer
+Local oFont
+Local oLabel
+Local oScore
+Local oMsg
 Local aDropping := {}
-Local lRunning := .F.
+Local nScore := 0
 
-DEFINE DIALOG oDlg TITLE "Tetris" FROM 10,10 TO 450,250 PIXEL
+oFont := TFont():New('Courier new',,-16,.T.)
+
+DEFINE DIALOG oDlg TITLE "Tetris" FROM 10,10 TO 450,350 ;
+   FONT oFont PIXEL
 
 // Cria um fundo cinza, "esticando" um bitmap
-@ 8, 8 BITMAP oBackGround RESOURCE "GRAY" ;
+@ 8, 8 BITMAP oBackGround RESOURCE "GRAY2" ;
 SIZE 104,204  Of oDlg ADJUST NOBORDER PIXEL
 
 // Desenha na tela um grid de 20x10 com Bitmaps
@@ -60,66 +70,92 @@ SIZE 104,204  Of oDlg ADJUST NOBORDER PIXEL
 For nL := 1 to 20
 	For nC := 1 to 10
 		
-		@ nL*10, nC*10 BITMAP oBmp RESOURCE "GRAY" ;
-		SIZE 10,10  Of oDlg ADJUST NOBORDER PIXEL
+		@ nL*10, nC*10 BITMAP oBmp RESOURCE "GRAY2" ;
+      SIZE 10,10  Of oDlg ADJUST NOBORDER PIXEL
 		
-		aBMPGrid[nL][nC] := oBmp
+		_aBMPGrid[nL][nC] := oBmp
+		
+	Next
+Next
+               
+// Monta um Grid 4x4 para mostrar a proxima peça
+// ( Grid deslocado 110 pixels para a direita )
+
+@ 8, 118 BITMAP oBackNext RESOURCE "GRAY2" ;
+	SIZE 44,44  Of oDlg ADJUST NOBORDER PIXEL
+
+For nL := 1 to 4
+	For nC := 1 to 4
+		
+		@ nL*10, (nC*10)+110 BITMAP oBmp RESOURCE "GRAY2" ;
+      SIZE 10,10  Of oDlg ADJUST NOBORDER PIXEL
+		
+		_aBMPNext[nL][nC] := oBmp
 		
 	Next
 Next
 
+// Label fixo, título do Score.
+@ 80,120 SAY oLabel PROMPT "[Score]" SIZE 60,10 OF oDlg PIXEL
+                                    
+// Label para Mostrar score, timers e mensagens do jogo
+@ 90,120 SAY oScore PROMPT "        " SIZE 60,120 OF oDlg PIXEL
+                                     
 // Define um timer, para fazer a peça em jogo
 // descer uma posição a cada um segundo
 // ( Nao pode ser menor, o menor tempo é 1 segundo )
 oTimer := TTimer():New(1000, ;
-{|| MoveDown(oDlg,oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer,.f.) }, oDlg )
+	{|| MoveDown(oDlg,oBackGround,aGrid,@aDropping,oTimer,.f.,@nScore) , ;
+		 	PaintScore(oScore,nScore)}, oDlg )
 
 // Botões com atalho de teclado
 // para as teclas usadas no jogo
 // colocados fora da area visivel da caixa de dialogo
 
 @ 480,10 BUTTON oDummyBtn PROMPT '&A' ;
-ACTION ( DoAction(oDlg,'A',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
+  ACTION ( DoAction(oDlg,'A',oBackGround,aGrid,@aDropping,oTimer,@nScore),PaintScore(oScore,nScore ) );
+  SIZE 1, 1 OF oDlg PIXEL
 
 @ 480,20 BUTTON oDummyBtn PROMPT '&S' ;
-ACTION ( DoAction(oDlg,'S',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
+  ACTION ( DoAction(oDlg,'S',oBackGround,aGrid,@aDropping,oTimer,@nScore),PaintScore(oScore,nScore) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
 
 @ 480,20 BUTTON oDummyBtn PROMPT '&D' ;
-ACTION ( DoAction(oDlg,'D',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
-
+  ACTION ( DoAction(oDlg,'D',oBackGround,aGrid,@aDropping,oTimer,@nScore),PaintScore(oScore,nScore) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
+  
 @ 480,20 BUTTON oDummyBtn PROMPT '&W' ;
-ACTION ( DoAction(oDlg,'W',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
+  ACTION ( DoAction(oDlg,'W',oBackGround,aGrid,@aDropping,oTimer,@nScore),PaintScore(oScore,nScore) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
 
 @ 480,20 BUTTON oDummyBtn PROMPT '&J' ;
-ACTION ( DoAction(oDlg,'J',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
+  ACTION ( DoAction(oDlg,'J',oBackGround,aGrid,@aDropping,oTimer,@nScore,PaintScore(oScore,nScore)) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
 
 @ 480,20 BUTTON oDummyBtn PROMPT '&K' ;
-ACTION ( DoAction(oDlg,'K',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
+  ACTION ( DoAction(oDlg,'K',oBackGround,aGrid,@aDropping,oTimer,@nScore),PaintScore(oScore,nScore) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
 
 @ 480,20 BUTTON oDummyBtn PROMPT '&L' ;
-ACTION ( DoAction(oDlg,'L',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
+  ACTION ( DoAction(oDlg,'L',oBackGround,aGrid,@aDropping,oTimer,@nScore),PaintScore(oScore,nScore) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
 
 @ 480,20 BUTTON oDummyBtn PROMPT '&I' ;
-ACTION ( DoAction(oDlg,'I',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
+  ACTION ( DoAction(oDlg,'I',oBackGround,aGrid,@aDropping,oTimer,@nScore),PaintScore(oScore,nScore) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
                                                   
 @ 480,20 BUTTON oDummyBtn PROMPT '& ' ; // Espaço = Dropa
-ACTION ( DoAction(oDlg,' ',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
+  ACTION ( DoAction(oDlg,' ',oBackGround,aGrid,@aDropping,oTimer,@nScore),PaintScore(oScore,nScore) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
 
 @ 480,20 BUTTON oDummyBtn PROMPT '&P' ; // Pause
-ACTION ( DoAction(oDlg,'P',oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer) ) ;
-SIZE 1, 1 OF oDlg PIXEL
+  ACTION ( DoAction(oDlg,'P',oBackGround,aGrid,@aDropping,oTimer,@nScore),PaintScore(oScore,nScore) ) ;
+  SIZE 1, 1 OF oDlg PIXEL
 
 // Na inicialização do Dialogo uma partida é iniciada
-oDlg:bInit := {|| Start(oDlg,@aDropping,oBackGround,aBMPGrid,aGrid),lRunning := .t.,oTimer:Activate() }
+oDlg:bInit := {|| Start(oDlg,@aDropping,oBackGround,aGrid),;
+                  _lRunning := .t.,;
+                  oTimer:Activate() }
 
 ACTIVATE DIALOG oDlg CENTER
 
@@ -129,23 +165,31 @@ Return
 Função Start() Inicia o jogo
 ------------------------------------------------------------ */
 
-STATIC Function Start(oDlg,aDropping,oBackGround,aBmpGrid,aGrid)
-
-// Sorteia a peça em jogo
-nPiece := randomize(1,len(aPieces)+1)
+STATIC Function Start(oDlg,aDropping,oBackGround,aGrid)
+Local aDraw
 
 // Inicializa o grid de imagens do jogo na memória
-InitGrid(@aGrid)
-
+// Sorteia a peça em jogo
 // Define a peça em queda e a sua posição inicial
-// Peca, direcao, linha, coluna
+// [ Peca, direcao, linha, coluna ]
+// e Desenha a peça em jogo no Grid
+// e Atualiza a interface com o Grid
+InitGrid(@aGrid)
+nPiece := randomize(1,len(_aPieces)+1)
 aDropping := {nPiece,1,1,6}
+SetGridPiece(aDropping,aGrid)
+PaintGrid(aGrid)
 
-// Desenha a peça em jogo no Grid
-PutPiece(aDropping,aGrid)
+// Sorteia a proxima peça e desenha 
+// ela no grid reservado para ela 
+InitNext()
+_nNextPiece := randomize(1,len(_aPieces)+1)
+aDraw := {_nNextPiece,1,1,1}
+SetGridPiece(aDraw,_aNext)
+PaintNext()
 
-// Atualiza a interface com o Grid
-PaintGrid(oDlg,oBackGround,aGrid,aBmpGrid)
+// Marca timer do inicio de jogo 
+_nGameClock := seconds()
 
 Return
 
@@ -164,6 +208,10 @@ aadd(aGrid,"11111111111111")
 aadd(aGrid,"11111111111111")
 return
 
+STATIC Function InitNext()
+_aNext := array(4,"0000")
+return
+
 //
 // Aplica a peça no Grid.
 // Retorna .T. se foi possivel aplicar a peça na posicao atual
@@ -171,41 +219,40 @@ return
 // sobreposição, a função retorna .F. e o grid não é atualizado
 //
 
-STATIC Function PutPiece(aOnePiece,aGrid)
-Local nPiece := aOnePiece[1]
-Local nPos := aOnePiece[2]
-Local nRow := aOnePiece[3]
-Local nCol := aOnePiece[4]
-Local nL
-Local nOver := 0
+STATIC Function SetGridPiece(aOnePiece,aGrid)
+Local nPiece := aOnePiece[1] // Numero da peça
+Local nPos   := aOnePiece[2] // Posição ( para rotacionar ) 
+Local nRow   := aOnePiece[3] // Linha atual no Grid
+Local nCol   := aOnePiece[4] // Coluna atual no Grid
+Local nL , nC
 Local aTecos := {}
+Local cTeco, cPeca , cPieceStr
+
 cPieceStr := str(nPiece,1)
+
 For nL := nRow to nRow+3
 	cTeco := substr(aGrid[nL],nCol,4)
-	cPeca := aPieces[nPiece][1+nPos][nL-nRow+1]
+	cPeca := _aPieces[nPiece][1+nPos][nL-nRow+1]
 	For nC := 1 to 4
-		If Substr(cPeca,nC,1)=='1'
-			If substr(cTeco,nC,1)!='0'
-				nOver++
-				EXIT
-			Else
-				cTeco := Stuff(cTeco,nC,1,cPieceStr)
+		If Substr(cPeca,nC,1) == '1'
+			If substr(cTeco,nC,1) != '0'
+				// Vai haver sobreposição,
+				// Nao dá para desenhar a peça
+				Return .F.
 			Endif
+			cTeco := Stuff(cTeco,nC,1,cPieceStr)
 		Endif
 	Next
+  // Array temporario com a peça já colocada
 	aadd(aTecos,cTeco)
-	If nOver <> 0
-		EXIT
-	Endif
 Next
 
-If nOver == 0
-	For nL := nRow to nRow+3
-		aGrid[nL] := stuff(aGrid[nL],nCol,4,aTecos[nL-nRow+1])
-	Next
-Endif
+// Aplica o array temporario no array do grid
+For nL := nRow to nRow+3
+	aGrid[nL] := stuff(aGrid[nL],nCol,4,aTecos[nL-nRow+1])
+Next
 
-Return ( nOver == 0 )
+Return .T.
 
 
 /* ----------------------------------------------------------
@@ -216,65 +263,98 @@ Release 20150222 : Optimização na camada de comunicação, apenas setar
 o nome do resource / bitmap caso o resource seja diferente do atual.
 ---------------------------------------------------------- */
 
-STATIC Function PaintGrid(oDlg,oBackGround,aGrid,aBmpGrid)
+STATIC Function PaintGrid(aGrid)
 Local nL
 Local nC
-
-oBackGround:SetBmp("Gray")
 
 for nL := 1 to 20
 	cLine := aGrid[nL]
 	For nC := 1 to 10
 		nCor := val(substr(cLine,nC+2,1))
-		If aBmpGrid[nL][nC]:cResName != aColors[nCor+1]
+		If _aBMPGrid[nL][nC]:cResName != _aColors[nCor+1]
 			// Somente manda atualizar o bitmap se houve
 			// mudança na cor / resource desta posição
-			aBmpGrid[nL][nC]:SetBmp(aColors[nCor+1])
+			_aBMPGrid[nL][nC]:SetBmp(_aColors[nCor+1])
 		endif
 	Next
 Next
 
 Return
 
+// Pinta na interface a próxima peça 
+// a ser usada no jogo 
+STATIC Function PaintNext()
+Local nL
+Local nC
+
+For nL := 1 to 4
+	cLine := _aNext[nL]
+	For nC := 1 to 4
+		nCor := val(substr(cLine,nC,1))
+		If _aBMPNext[nL][nC]:cResName != _aColors[nCor+1]
+			_aBMPNext[nL][nC]:SetBmp(_aColors[nCor+1])
+		endif
+	Next
+Next
+
+Return
+
+/* -----------------------------------------------------------------
+Carga do array de peças do jogo 
+Array multi-dimensional, contendo para cada 
+linha a string que identifica a peça, e um ou mais
+arrays de 4 strings, onde cada 4 elementos 
+representam uma matriz binaria de caracteres 4x4 
+para desenhar cada peça 
+
+Exemplo - Peça "O"      
+
+aLPieces[1][1] C "O"
+aLPieces[1][2][1] "0000" 
+aLPieces[1][2][2] "0110" 
+aLPieces[1][2][3] "0110" 
+aLPieces[1][2][4] "0000" 
+
+----------------------------------------------------------------- */
 
 STATIC Function LoadPieces()
-Local aLocalPieces := {}
+Local aLPieces := {}
 
 // Peça "O" , uma posição
-aadd(aLocalPieces,{'O',	{	'0000','0110','0110','0000'}})
+aadd(aLPieces,{'O',	{	'0000','0110','0110','0000'}})
 
 // Peça "I" , em pé e deitada
-aadd(aLocalPieces,{'I',	{	'0000','1111','0000','0000'},;
-{	'0010','0010','0010','0010'}})
+aadd(aLPieces,{'I',	{	'0000','1111','0000','0000'},;
+                        {	'0010','0010','0010','0010'}})
 
 // Peça "S", em pé e deitada
-aadd(aLocalPieces,{'S',	{	'0000','0011','0110','0000'},;
-{	'0010','0011','0001','0000'}})
+aadd(aLPieces,{'S',	{	'0000','0011','0110','0000'},;
+                        {	'0010','0011','0001','0000'}})
 
 // Peça "Z", em pé e deitada
-aadd(aLocalPieces,{'Z',	{	'0000','0110','0011','0000'},;
-{	'0001','0011','0010','0000'}})
+aadd(aLPieces,{'Z',	{	'0000','0110','0011','0000'},;
+                        {	'0001','0011','0010','0000'}})
 
 // Peça "L" , nas 4 posições possiveis
-aadd(aLocalPieces,{'L',	{	'0000','0111','0100','0000'},;
-{	'0010','0010','0011','0000'},;
-{	'0001','0111','0000','0000'},;
-{	'0110','0010','0010','0000'}})
+aadd(aLPieces,{'L',	{	'0000','0111','0100','0000'},;
+                        {	'0010','0010','0011','0000'},;
+                        {	'0001','0111','0000','0000'},;
+                        {	'0110','0010','0010','0000'}})
 
 // Peça "J" , nas 4 posições possiveis
-aadd(aLocalPieces,{'J',	{	'0000','0111','0001','0000'},;
-{	'0011','0010','0010','0000'},;
-{	'0100','0111','0000','0000'},;
-{	'0010','0010','0110','0000'}})
+aadd(aLPieces,{'J',	{	'0000','0111','0001','0000'},;
+                        {	'0011','0010','0010','0000'},;
+                        {	'0100','0111','0000','0000'},;
+                        {	'0010','0010','0110','0000'}})
 
 // Peça "T" , nas 4 posições possiveis
-aadd(aLocalPieces,{'T',	{	'0000','0111','0010','0000'},;
-{	'0010','0011','0010','0000'},;
-{	'0010','0111','0000','0000'},;
-{	'0010','0110','0010','0000'}})
+aadd(aLPieces,{'T',	{	'0000','0111','0010','0000'},;
+                        {	'0010','0011','0010','0000'},;
+                        {	'0010','0111','0000','0000'},;
+                        {	'0010','0110','0010','0000'}})
 
 
-Return aLocalPieces
+Return aLPieces
 
 
 /* ----------------------------------------------------------
@@ -288,8 +368,12 @@ nova peça, a pilha de peças bateu na tampa -- Game Over
 
 ---------------------------------------------------------- */
 
-STATIC Function MoveDown(oDlg,oBackGround,aBMPGrid,aGrid,aDropping,lRunning,oTimer,lDrop)
+STATIC Function MoveDown(oDlg,oBackGround,aGrid,aDropping,oTimer,lDrop,nScore)
 Local aOldPiece
+
+If !_lRunning
+   Return
+Endif
 
 // Clona a peça em queda na posição atual
 aOldPiece := aClone(aDropping)
@@ -297,6 +381,9 @@ aOldPiece := aClone(aDropping)
 If lDrop
 	
 	// Dropa a peça até bater embaixo
+	// O Drop incrementa o score em 1 ponto 
+	// para cada linha percorrida. Quando maior a quantidade
+	// de linhas vazias, maior o score acumulado com o Drop
 	
 	// Guarda a peça na posição atual
 	aOldPiece := aClone(aDropping)
@@ -307,7 +394,7 @@ If lDrop
 	// Desce uma linha pra baixo
 	aDropping[3]++
 	
-	While PutPiece(aDropping,aGrid)
+	While SetGridPiece(aDropping,aGrid)
 		
 		// Encaixou, remove e tenta de novo
 		DelPiece(aDropping,aGrid)
@@ -317,7 +404,10 @@ If lDrop
 		
 		// Desce a peça mais uma linha pra baixo
 		aDropping[3]++
-		
+
+		// Incrementa o Score
+		nScore++
+				
 	Enddo
 	
 	// Nao deu mais pra pintar, "bateu"
@@ -326,8 +416,8 @@ If lDrop
 	// caso tenha espaço.
 	
 	aDropping := aClone(aOldPiece)
-	PutPiece(aDropping,aGrid)
-	PaintGrid(oDlg,oBackGround,aGrid,aBmpGrid)
+	SetGridPiece(aDropping,aGrid)
+	PaintGrid(aGrid)
 	
 Else
 	
@@ -340,11 +430,11 @@ Else
 	aDropping[3]++
 	
 	// Recoloca a peça no Grid
-	If PutPiece(aDropping,aGrid)
+	If SetGridPiece(aDropping,aGrid)
 		
 		// Se deu pra encaixar, beleza
 		// pinta o novo grid e retorna
-		PaintGrid(oDlg,oBackGround,aGrid,aBmpGrid)
+		PaintGrid(aGrid)
 		Return
 		
 	Endif
@@ -353,33 +443,43 @@ Else
 	// Volta a peça pro lugar anterior
 	// e recoloca a peça no Grid
 	aDropping :=  aClone(aOldPiece)
-	PutPiece(aDropping,aGrid)
-	
+	SetGridPiece(aDropping,aGrid)
+
+	// Incrementa o score em 4 pontos 
+	// Nao importa a peça ou como ela foi encaixada
+	nScore += 4
+
 	// Agora verifica se da pra limpar alguma linha
-	CheckLines(@aGrid)
+	CheckLines(@aGrid,@nScore)
 	
-	// Cria uma peça nova
-	nPiece := randomize(1,len(aPieces)+1)
+	// Pega a proxima peça
+	nPiece := _nNextPiece
 	aDropping := {nPiece,1,1,6} // Peca, direcao, linha, coluna
-	
-	// E coloca a peça na primeira linha visivel do Grid
-	
-	If !PutPiece(aDropping,aGrid)
+
+	If !SetGridPiece(aDropping,aGrid)
 		
 		// Acabou, a peça nova nao entra (cabe) no Grid
 		// Desativa o Timer e mostra "game over"
 		// e fecha o programa
-		
-		lRunning := .F.
-		oTimer:Deactivate()
-		MsgStop("*** GAME OVER ***")
-		QUIT
+
+		// e volta os ultimos 4 pontos ...		
+		nScore -= 4
+		_lRunning := .F.
+		_nGameClock := round(seconds()-_nGameClock,0)
+		oTimer:Deactivate()                             
 		
 	Endif
 	
 	// Se a peca tem onde entrar, beleza
 	// -- Repinta o Grid -- 
-	PaintGrid(oDlg,oBackGround,aGrid,aBmpGrid)
+	PaintGrid(aGrid)
+
+	// E Sorteia a proxima peça
+	InitNext()
+	_nNextPiece := randomize(1,len(_aPieces)+1)
+	aDraw := {_nNextPiece,1,1,1}
+	SetGridPiece(aDraw,_aNext)
+	PaintNext()
 	
 Endif
 
@@ -390,10 +490,14 @@ Recebe uma ação da interface, através de uma das letras
 de movimentação de peças, e realiza a movimentação caso
 haja espaço para tal.
 ---------------------------------------------------------- */
-STATIC Function DoAction(oDlg,cAct,oBackGround,aBMPGrid,aGrid,aDropping,lRunning,oTimer)
+STATIC Function DoAction(oDlg,cAct,oBackGround,aGrid,aDropping,oTimer,nScore)
 Local aOldPiece
 
 // conout("Action  = ["+cAct+"]")
+
+If !_lRunning
+   Return
+Endif
 
 // Clona a peça em queda
 aOldPiece := aClone(aDropping)
@@ -404,13 +508,13 @@ if cAct $ 'AJ'
 	// Remove a peça do grid
 	DelPiece(aDropping,aGrid)
 	aDropping[4]--
-	If !PutPiece(aDropping,aGrid)
+	If !SetGridPiece(aDropping,aGrid)
 		// Se nao foi feliz, pinta a peça de volta
 		aDropping :=  aClone(aOldPiece)
-		PutPiece(aDropping,aGrid)
+		SetGridPiece(aDropping,aGrid)
 	Endif
 	// Repinta o Grid
-	PaintGrid(oDlg,oBackGround,aGrid,aBmpGrid)
+	PaintGrid(aGrid)
 	
 Elseif cAct $ 'DL'
 
@@ -418,13 +522,13 @@ Elseif cAct $ 'DL'
 	// Remove a peça do grid
 	DelPiece(aDropping,aGrid)
 	aDropping[4]++'
-	If !PutPiece(aDropping,aGrid)
+	If !SetGridPiece(aDropping,aGrid)
 		// Se nao foi feliz, pinta a peça de volta
 		aDropping :=  aClone(aOldPiece)
-		PutPiece(aDropping,aGrid)
+		SetGridPiece(aDropping,aGrid)
 	Endif
 	// Repinta o Grid
-	PaintGrid(oDlg,oBackGround,aGrid,aBmpGrid)
+	PaintGrid(aGrid)
 	
 Elseif cAct $ 'WI'
 	
@@ -436,29 +540,29 @@ Elseif cAct $ 'WI'
 	// Rotaciona
 	aDropping[2]--
 	If aDropping[2] < 1
-		aDropping[2] := len(aPieces[aDropping[1]])-1
+		aDropping[2] := len(_aPieces[aDropping[1]])-1
 	Endif
 	
-	If !PutPiece(aDropping,aGrid)
+	If !SetGridPiece(aDropping,aGrid)
 		// Se nao consegue colocar a peça no Grid
 		// Nao é possivel rotacionar. Pinta a peça de volta
 		aDropping :=  aClone(aOldPiece)
-		PutPiece(aDropping,aGrid)
+		SetGridPiece(aDropping,aGrid)
 	Endif
 	
 	// E Repinta o Grid
-	PaintGrid(oDlg,oBackGround,aGrid,aBmpGrid)
+	PaintGrid(aGrid)
 	
 ElseIF cAct $ 'SK'
 	
 	// Desce a peça para baixo uma linha
-	MoveDown(oDlg,oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer,.F.)
+	MoveDown(oDlg,oBackGround,aGrid,@aDropping,oTimer,.F.,@nScore)
 	
 ElseIF cAct == ' '
 	
 	// Dropa a peça - empurra para baixo até a última linha
 	// antes de baer a peça no fundo do Grid
-	MoveDown(oDlg,oBackGround,aBMPGrid,aGrid,@aDropping,@lRunning,oTimer,.T.)
+	MoveDown(oDlg,oBackGround,aGrid,@aDropping,oTimer,.T.,@nScore)
 	
 ElseIF cAct == 'P'
 	
@@ -486,7 +590,7 @@ Local cTeco, cPeca
 // e desliga os pontos preenchidos da peça no Grid.
 For nL := nRow to nRow+3
 	cTeco := substr(aGrid[nL],nCol,4)
-	cPeca := aPieces[nPiece][1+nPos][nL-nRow+1]
+	cPeca := _aPieces[nPiece][1+nPos][nL-nRow+1]
 	For nC := 1 to 4
 		If Substr(cPeca,nC,1)=='1'
 			cTeco := Stuff(cTeco,nC,1,'0')
@@ -500,8 +604,8 @@ Return
 /* -----------------------------------------------------------------------
 Verifica se alguma linha esta completa e pode ser eliminada
 ----------------------------------------------------------------------- */
-STATIC Function CheckLines(aGrid)
-
+STATIC Function CheckLines(aGrid , nScore )
+Local nErased := 0 
 
 // Sempre varre de baixo para cima
 
@@ -521,9 +625,48 @@ For nL := 20 to 2 step -1
 		ains(aGrid,1)
 		aGrid[1] := "11000000000011"
 		nL++
+		nErased++
+		If nErased == 4 
+		   nScore += 100
+		ElseIf nErased == 3 
+		   nScore += 50
+		ElseIf nErased == 2
+		   nScore += 25
+		ElseIf nErased == 1
+		   nScore += 10
+	  Endif
 	Endif
 	
 Next
 
 Return
 
+
+/* ------------------------------------------------------
+Seta o score do jogo na tela
+Caso o jogo tenha terminado, acrescenta 
+a mensagem  de "GAME OVER"
+------------------------------------------------------*/
+STATIC Function PaintScore(oScore,nScore)
+Local nGameTime
+
+If _lRunning
+
+	// JOgo em andamento, apenas atualiza score e timer
+	oScore:SetText(strzero(nScore,7)+CRLF+CRLF+;
+		'[Time]'+CRLF+cValToChar(round(seconds()-_nGameClock,0))+' s.')
+
+Else  
+
+	// Terminou, acresenta a mensagem de "GAME OVER"
+	oScore:SetText(strzero(nScore,7)+CRLF+CRLF+;
+		'[Time]'+CRLF+cValToChar(_nGameClock)+' s.'+CRLF+CRLF+;
+		"********"+CRLF+;
+		"* GAME *"+CRLF+;
+		"********"+CRLF+;
+		"* OVER *"+CRLF+;
+		"********")
+
+Endif
+
+Return
