@@ -35,7 +35,7 @@ STATIC _aPieces := LoadPieces()
 STATIC _aBlockRes := { "BLACK2","YELOW2","LIGHTBLUE2","ORANGE2","RED2","GREEN2","BLUE2","PURPLE2" }
 STATIC _nGameClock
 STATIC _nNextPiece
-STATIC _lRunning := .F.  
+STATIC _GlbStatus := 0 // 0 = Running  1 = PAuse 2 == Game Over
 STATIC _aBMPGrid  := array(20,10)
 STATIC _aBMPNext  := array(4,5)
 STATIC _aNext := {}
@@ -148,12 +148,12 @@ _oTimer := TTimer():New(1000, ;
   SIZE 1, 1 OF oDlg PIXEL
 
 @ 480,20 BUTTON oDummyBtn PROMPT '&P' ; // Pause
-  ACTION ( DoAction('P') ) ;
+  ACTION ( DoPause() ) ;
   SIZE 1, 1 OF oDlg PIXEL
 
 // Na inicialização do Dialogo uma partida é iniciada
 oDlg:bInit := {|| Start(oDlg),;
-                  _lRunning := .t.,;
+                  _GlbStatus := 0 ,;
                   _oTimer:Activate() }
 
 ACTIVATE DIALOG oDlg CENTER
@@ -367,8 +367,8 @@ nova peça, a pilha de peças bateu na tampa -- Game Over
 
 STATIC Function MoveDown(lDrop)
 Local aOldPiece
-
-If !_lRunning
+              
+If _GlbStatus != 0
    Return
 Endif
 
@@ -460,8 +460,8 @@ Else
 		// e fecha o programa
 
 		// e volta os ultimos 4 pontos ...		
+		_GlbStatus := 2 // GAme Over
 		_nScore -= 4
-		_lRunning := .F.
 		_nGameClock := round(seconds()-_nGameClock,0)
 		If _nGameClock < 0 
 			// Ficou negativo, passou da meia noite 		
@@ -497,7 +497,7 @@ Local aOldPiece
 
 // conout("Action  = ["+cAct+"]")
 
-If !_lRunning
+If _GlbStatus != 0 
    Return
 Endif
 
@@ -569,17 +569,30 @@ ElseIF cAct == ' '
 	// antes de baer a peça no fundo do Grid
 	MoveDown(.T.)
 	
-ElseIF cAct == 'P'
-	
-	// Pausa
-	MsgInfo("PAUSE - Clique no botão abaixo para continuar.")
-
 Endif
 
 // Antes de retornar, repinta o score
 PaintScore()
 
 Return .T.
+
+Static function DoPause()
+
+If _GlbStatus == 0
+	// Pausa
+	_GlbStatus := 1
+	_oTimer:Deactivate()
+Else
+	// Sai da pausa
+	_GlbStatus := 0
+	_oTimer:Activate()
+Endif
+
+// Antes de retornar, repinta o score
+PaintScore()
+
+Return
+
 
 /* -----------------------------------------------------------------------
 Remove uma peça do Grid atual
@@ -658,13 +671,22 @@ a mensagem  de "GAME OVER"
 ------------------------------------------------------*/
 STATIC Function PaintScore()
 
-If _lRunning
+If _GlbStatus == 0
 
 	// JOgo em andamento, apenas atualiza score e timer
 	_oScore:SetText(str(_nScore,7)+CRLF+CRLF+;
 		'[Time]'+CRLF+str(seconds()-_nGameClock,7,0)+' s.')
 
-Else  
+ElseIf _GlbStatus == 1
+
+	// Pausa, acresenta a mensagem de "GAME OVER"
+	_oScore:SetText(str(_nScore,7)+CRLF+CRLF+;
+		'[Time]'+CRLF+str(seconds()-_nGameClock,7,0)+' s.'+CRLF+CRLF+;
+		"*********"+CRLF+;
+		"* PAUSE *"+CRLF+;
+		"*********")
+
+ElseIf _GlbStatus == 2
 
 	// Terminou, acresenta a mensagem de "GAME OVER"
 	_oScore:SetText(str(_nScore,7)+CRLF+CRLF+;
