@@ -23,41 +23,14 @@ Group Tetris
       End
       Folder Imagens
          VSSPath=Definições
-         FilesCount=18
+         FilesCount=9
          File \GitHub\Tetris\Black.bmp
-             Type=I
-         End
-         File \GitHub\Tetris\Blue.bmp
              Type=I
          End
          File \GitHub\Tetris\Gray.bmp
              Type=I
          End
-         File \GitHub\Tetris\Green.bmp
-             Type=I
-         End
-         File \GitHub\Tetris\LightBlue.bmp
-             Type=I
-         End
-         File \GitHub\Tetris\Orange.bmp
-             Type=I
-         End
-         File \GitHub\Tetris\Purple.bmp
-             Type=I
-         End
-         File \GitHub\Tetris\red.bmp
-             Type=I
-         End
-         File \GitHub\Tetris\Yelow.bmp
-             Type=I
-         End
-         File \GitHub\Tetris\Black2.bmp
-             Type=I
-         End
          File \GitHub\Tetris\Blue2.bmp
-             Type=I
-         End
-         File \GitHub\Tetris\Gray2.bmp
              Type=I
          End
          File \GitHub\Tetris\Green2.bmp

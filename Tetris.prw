@@ -4,7 +4,7 @@
 Função       U_TETRIS
 Autor        Júlio Wittwer
 Data         03/11/2014
-Versão       1.150224
+Versão       1.150226
 Descriçao    Réplica do jogo Tetris, feito em AdvPL
 
 Para jogar, utilize as letras :
@@ -31,21 +31,21 @@ T = Purple
 
 ======================================================== */
 
-STATIC _aPieces := LoadPieces()
-STATIC _aBlockRes := { "BLACK2","YELOW2","LIGHTBLUE2","ORANGE2","RED2","GREEN2","BLUE2","PURPLE2" }
-STATIC _nGameClock
-STATIC _nNextPiece
+STATIC _aPieces := LoadPieces()   // Array de peças do jogo 
+STATIC _aBlockRes := { "BLACK","YELOW2","LIGHTBLUE2","ORANGE2","RED2","GREEN2","BLUE2","PURPLE2" }
+STATIC _nGameClock     // Tempo de jogo 
+STATIC _nNextPiece     // Proxima peça a ser usada
 STATIC _GlbStatus := 0 // 0 = Running  1 = PAuse 2 == Game Over
-STATIC _aBMPGrid  := array(20,10)
-STATIC _aBMPNext  := array(4,5)
-STATIC _aNext := {}
-STATIC _nScore := 0
-STATIC _oScore
-STATIC _aDropping := {}
-STATIC _aMainGrid := {}
-STATIC _oTimer
+STATIC _aBMPGrid  := array(20,10) // Array de bitmaps de interface do jogo 
+STATIC _aBMPNext  := array(4,5)   // Array de botmaps da proxima peça
+STATIC _aNext := {}    // Array com a definição e posição da proxima peça
+STATIC _aDropping := {} // Array com a definição e posição da peça em jogo
+STATIC _nScore := 0     // pontuação da partida
+STATIC _oScore          // label para mostrar o score e time e mensagens
+STATIC _aMainGrid := {} // Array de strings com os blocos da interface representados em memoria
+STATIC _oTimer          // Objeto timer de interface para a queda automática da peça em jogo
                  
-
+// =======================================================
 
 USER Function Tetris()
 Local nC , nL
@@ -87,7 +87,7 @@ Next
 For nL := 1 to 4
 	For nC := 1 to 5
 		
-		@ nL*10, (nC*10)+110 BITMAP oBmp RESOURCE "GRAY2" ;
+		@ nL*10, (nC*10)+110 BITMAP oBmp RESOURCE "BLACK" ;
       SIZE 10,10  Of oDlg ADJUST NOBORDER PIXEL
 		
 		_aBMPNext[nL][nC] := oBmp
@@ -152,9 +152,7 @@ _oTimer := TTimer():New(1000, ;
   SIZE 1, 1 OF oDlg PIXEL
 
 // Na inicialização do Dialogo uma partida é iniciada
-oDlg:bInit := {|| Start(oDlg),;
-                  _GlbStatus := 0 ,;
-                  _oTimer:Activate() }
+oDlg:bInit := {|| Start() }
 
 ACTIVATE DIALOG oDlg CENTER
 
@@ -186,6 +184,9 @@ _nNextPiece := randomize(1,len(_aPieces)+1)
 aDraw := {_nNextPiece,1,1,1}
 SetGridPiece(aDraw,_aNext)
 PaintNext()
+
+// Inicia o timer de queda automática da peça em jogo
+_oTimer:Activate()
 
 // Marca timer do inicio de jogo 
 _nGameClock := seconds()
@@ -459,15 +460,19 @@ Else
 		// Desativa o Timer e mostra "game over"
 		// e fecha o programa
 
-		// e volta os ultimos 4 pontos ...		
 		_GlbStatus := 2 // GAme Over
+
+		// volta os ultimos 4 pontos ...		
 		_nScore -= 4
+
+		// Cacula o tempo de operação do jogo 
 		_nGameClock := round(seconds()-_nGameClock,0)
 		If _nGameClock < 0 
 			// Ficou negativo, passou da meia noite 		
 			_nGameClock += 86400
 		Endif
 
+		// Desliga o timer de queda de peça em jogo
 		_oTimer:Deactivate()                             
 		
 	Endif
@@ -478,10 +483,19 @@ Else
 
 	// Sorteia a proxima peça
 	// e mostra ela no Grid lateral 
-	InitNext()
-	_nNextPiece := randomize(1,len(_aPieces)+1)
-	SetGridPiece( {_nNextPiece,1,1,1} , _aNext)
-	PaintNext()
+
+	If _GlbStatus != 2 
+		// Mas apenas faz isso caso nao esteja em game over
+		InitNext()
+		_nNextPiece := randomize(1,len(_aPieces)+1)
+		SetGridPiece( {_nNextPiece,1,1,1} , _aNext)
+		PaintNext()
+  Else
+  	// Caso esteja em game over, apenas limpa a proxima peça
+		InitNext()
+		PaintNext()
+  Endif
+  
 	
 Endif
 
