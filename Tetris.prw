@@ -4,7 +4,7 @@
 Função       U_TETRIS
 Autor        Júlio Wittwer
 Data         03/11/2014
-Versão       1.150226
+Versão       1.150307
 Descriçao    Réplica do jogo Tetris, feito em AdvPL
 
 Para jogar, utilize as letras :
@@ -36,7 +36,7 @@ STATIC _aBlockRes := { "BLACK","YELOW2","LIGHTBLUE2","ORANGE2","RED2","GREEN2","
 STATIC _nGameClock     // Tempo de jogo 
 STATIC _nNextPiece     // Proxima peça a ser usada
 STATIC _GlbStatus := 0 // 0 = Running  1 = PAuse 2 == Game Over
-STATIC _aBMPGrid  := array(20,10) // Array de bitmaps de interface do jogo 
+STATIC _aBMPGrid  := array(21,10) // Array de bitmaps de interface do jogo 
 STATIC _aBMPNext  := array(4,5)   // Array de botmaps da proxima peça
 STATIC _aNext := {}    // Array com a definição e posição da proxima peça
 STATIC _aDropping := {} // Array com a definição e posição da peça em jogo
@@ -203,7 +203,7 @@ de validação de movimentação das peças.
 ---------------------------------------------------------- */
 
 STATIC Function InitGrid()
-_aMainGrid := array(20,"11000000000011")
+_aMainGrid := array(21,"11000000000011")
 aadd(_aMainGrid,"11111111111111")
 aadd(_aMainGrid,"11111111111111")
 return
@@ -261,13 +261,16 @@ Pinta o Grid do jogo da memória para a Interface
 
 Release 20150222 : Optimização na camada de comunicação, apenas setar
 o nome do resource / bitmap caso o resource seja diferente do atual.
+
+Release 20150307 : colocar mais uma linha no topo do grid, para a 
+proxima peça surgir uma linha mais para cima
 ---------------------------------------------------------- */
 
 STATIC Function PaintMainGrid()
 Local nL, nc , cLine, nPeca
 
 for nL := 1 to 20
-	cLine := _aMainGrid[nL]
+	cLine := _aMainGrid[nL+1]
 	For nC := 1 to 10
 		nPeca := val(substr(cLine,nC+2,1))
 		If _aBMPGrid[nL][nC]:cResName != _aBlockRes[nPeca+1]
@@ -368,9 +371,10 @@ nova peça, a pilha de peças bateu na tampa -- Game Over
 
 STATIC Function MoveDown(lDrop)
 Local aOldPiece
-              
+Local nMoved := 0
+
 If _GlbStatus != 0
-   Return
+	Return
 Endif
 
 // Clona a peça em queda na posição atual
@@ -379,12 +383,9 @@ aOldPiece := aClone(_aDropping)
 If lDrop
 	
 	// Dropa a peça até bater embaixo
-	// O Drop incrementa o score em 1 ponto 
+	// O Drop incrementa o score em 1 ponto
 	// para cada linha percorrida. Quando maior a quantidade
 	// de linhas vazias, maior o score acumulado com o Drop
-	
-	// Guarda a peça na posição atual
-	aOldPiece := aClone(_aDropping)
 	
 	// Remove a peça do Grid atual
 	DelPiece(_aDropping,_aMainGrid)
@@ -397,106 +398,123 @@ If lDrop
 		// Encaixou, remove e tenta de novo
 		DelPiece(_aDropping,_aMainGrid)
 		
+		// Incrementa o numero de movimentos dentro do Drop
+		nMoved++
+		
 		// Guarda a peça na posição atual
 		aOldPiece := aClone(_aDropping)
 		
 		// Desce a peça mais uma linha pra baixo
 		_aDropping[3]++
-
+		
 		// Incrementa o Score
 		_nScore++
-				
+		
 	Enddo
 	
 	// Nao deu mais pra pintar, "bateu"
-	// Volta a peça anterior, pinta o grid e retorna
-	// isto permite ainda movimentos laterais
-	// caso tenha espaço.
 	
-	_aDropping := aClone(aOldPiece)
-	SetGridPiece(_aDropping,_aMainGrid)
-	PaintMainGrid()
-	
-Else
-	
-	// Move a peça apenas uma linha pra baixo
-	
-	// Primeiro remove a peça do Grid atual
-	DelPiece(_aDropping,_aMainGrid)
-	
-	// Agora move a peça apenas uma linha pra baixo
-	_aDropping[3]++
-	
-	// Recoloca a peça no Grid
-	If SetGridPiece(_aDropping,_aMainGrid)
+	If nMoved > 0
+
+		// Caso tenha havido movimento no Drop
+		// Volta a peça anterior, pinta o grid e retorna
+		// isto permite ainda movimentos laterais
+		// caso tenha espaço. 
 		
-		// Se deu pra encaixar, beleza
-		// pinta o novo grid e retorna
+		_aDropping := aClone(aOldPiece)
+		SetGridPiece(_aDropping,_aMainGrid)
 		PaintMainGrid()
+		
+		// E retorna daqui mesmo 
 		Return
 		
 	Endif
 	
-	// Opa ... Esbarrou em alguma coisa
-	// Volta a peça pro lugar anterior
-	// e recoloca a peça no Grid
-	_aDropping :=  aClone(aOldPiece)
+	// Caso tenha sido solicitado um drop, mas nao tenha 
+	// espaco para a peça descer nenhuma linha, encaixa ela 
+	// Volta a peça no seu estado original 
+	// e prossegue como se fosse solicitado um movedown 
+	// de apenas uma linha -- encaixando a peça
+	_aDropping := aClone(aOldPiece)
 	SetGridPiece(_aDropping,_aMainGrid)
 
-	// Incrementa o score em 4 pontos 
-	// Nao importa a peça ou como ela foi encaixada
-	_nScore += 4
+Endif
 
-	// Agora verifica se da pra limpar alguma linha
-	ChkMainLines()
+// Move a peça apenas uma linha pra baixo
+
+// Primeiro remove a peça do Grid atual
+DelPiece(_aDropping,_aMainGrid)
+
+// Agora move a peça apenas uma linha pra baixo
+_aDropping[3]++
+
+// Recoloca a peça no Grid
+If SetGridPiece(_aDropping,_aMainGrid)
 	
-	// Pega a proxima peça
-	nPiece := _nNextPiece
-	_aDropping := {nPiece,1,1,6} // Peca, direcao, linha, coluna
+	// Se deu pra encaixar, beleza
+	// pinta o novo grid e retorna
+	PaintMainGrid()
+	Return
+	
+Endif
 
-	If !SetGridPiece(_aDropping,_aMainGrid)
-		
-		// Acabou, a peça nova nao entra (cabe) no Grid
-		// Desativa o Timer e mostra "game over"
-		// e fecha o programa
+// Opa ... Esbarrou em alguma coisa
+// Volta a peça pro lugar anterior
+// e recoloca a peça no Grid
+_aDropping :=  aClone(aOldPiece)
+SetGridPiece(_aDropping,_aMainGrid)
 
-		_GlbStatus := 2 // GAme Over
+// Incrementa o score em 4 pontos
+// Nao importa a peça ou como ela foi encaixada
+_nScore += 4
 
-		// volta os ultimos 4 pontos ...		
-		_nScore -= 4
+// Agora verifica se da pra limpar alguma linha
+ChkMainLines()
 
-		// Cacula o tempo de operação do jogo 
-		_nGameClock := round(seconds()-_nGameClock,0)
-		If _nGameClock < 0 
-			// Ficou negativo, passou da meia noite 		
-			_nGameClock += 86400
-		Endif
+// Pega a proxima peça
+nPiece := _nNextPiece
+_aDropping := {nPiece,1,1,6} // Peca, direcao, linha, coluna
 
-		// Desliga o timer de queda de peça em jogo
-		_oTimer:Deactivate()                             
-		
+If !SetGridPiece(_aDropping,_aMainGrid)
+	
+	// Acabou, a peça nova nao entra (cabe) no Grid
+	// Desativa o Timer e mostra "game over"
+	// e fecha o programa
+	
+	_GlbStatus := 2 // GAme Over
+	
+	// volta os ultimos 4 pontos ...
+	_nScore -= 4
+	
+	// Cacula o tempo de operação do jogo
+	_nGameClock := round(seconds()-_nGameClock,0)
+	If _nGameClock < 0
+		// Ficou negativo, passou da meia noite
+		_nGameClock += 86400
 	Endif
 	
-	// Se a peca tem onde entrar, beleza
-	// -- Repinta o Grid -- 
-	PaintMainGrid()
-
-	// Sorteia a proxima peça
-	// e mostra ela no Grid lateral 
-
-	If _GlbStatus != 2 
-		// Mas apenas faz isso caso nao esteja em game over
-		InitNext()
-		_nNextPiece := randomize(1,len(_aPieces)+1)
-		SetGridPiece( {_nNextPiece,1,1,1} , _aNext)
-		PaintNext()
-  Else
-  	// Caso esteja em game over, apenas limpa a proxima peça
-		InitNext()
-		PaintNext()
-  Endif
-  
+	// Desliga o timer de queda de peça em jogo
+	_oTimer:Deactivate()
 	
+Endif
+
+// Se a peca tem onde entrar, beleza
+// -- Repinta o Grid --
+PaintMainGrid()
+
+// Sorteia a proxima peça
+// e mostra ela no Grid lateral
+
+If _GlbStatus != 2
+	// Mas apenas faz isso caso nao esteja em game over
+	InitNext()
+	_nNextPiece := randomize(1,len(_aPieces)+1)
+	SetGridPiece( {_nNextPiece,1,1,1} , _aNext)
+	PaintNext()
+Else
+	// Caso esteja em game over, apenas limpa a proxima peça
+	InitNext()
+	PaintNext()
 Endif
 
 Return
@@ -590,14 +608,19 @@ PaintScore()
 
 Return .T.
 
-Static function DoPause()
+/* ----------------------------------------------------------
+Coloca e retira o jog em pausa
+---------------------------------------------------------- */
+STATIC Function DoPause()
 
 If _GlbStatus == 0
-	// Pausa
+	// Jogo em execução = Pausa
+	// Desativa o timer 
 	_GlbStatus := 1
 	_oTimer:Deactivate()
-Else
-	// Sai da pausa
+ElseIf _GlbStatus == 1
+	// Jogo em pausa = Sai da pausa
+	// Ativa o timer 
 	_GlbStatus := 0
 	_oTimer:Activate()
 Endif
@@ -606,7 +629,6 @@ Endif
 PaintScore()
 
 Return
-
 
 /* -----------------------------------------------------------------------
 Remove uma peça do Grid atual
@@ -642,8 +664,7 @@ Verifica se alguma linha esta completa e pode ser eliminada
 STATIC Function ChkMainLines()
 Local nErased := 0 
 
-
-For nL := 20 to 2 step -1
+For nL := 21 to 2 step -1
 	
 	// Sempre varre de baixo para cima
 	// Pega uma linha, e remove os espaços vazios
